@@ -28,7 +28,10 @@
 
 -record(state, { client,
                  bucket,
-                 replies }).
+                 replies,
+                 max_ts=0
+
+    }).
 
 %% ====================================================================
 %% API
@@ -81,7 +84,7 @@ new(Id) ->
 
 run(get, KeyGen, _ValueGen, State) ->
     Key = KeyGen(),
-    case (State#state.client):get(State#state.bucket, Key, State#state.replies) of
+    case (State#state.client):get(State#state.bucket, Key,State#state.max_ts, State#state.replies) of
         {ok, _} ->
             {ok, State};
         {error, notfound} ->
@@ -90,29 +93,39 @@ run(get, KeyGen, _ValueGen, State) ->
             {error, Reason, State}
     end;
 run(put, KeyGen, ValueGen, State) ->
+    MaxTS=State#state.max_ts,
+    io:format("current maxts is ~p ~n",[MaxTS]),
     Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
-    case (State#state.client):put(Robj, State#state.replies) of
-        ok ->
-            {ok, State};
+    case (State#state.client):put(Robj,MaxTS, State#state.replies) of
+        {ok,Timestamp} ->
+            UpdatedMaxTS=max(MaxTS,Timestamp),
+            %io:format("updated Max TS is ~p ~n",[UpdatedMaxTS]),
+            {ok, State#state{max_ts = UpdatedMaxTS}};
         {error, Reason} ->
             {error, Reason, State}
     end;
 run(update, KeyGen, ValueGen, State) ->
     Key = KeyGen(),
-    case (State#state.client):get(State#state.bucket, Key, State#state.replies) of
+    MaxTS=State#state.max_ts,
+    io:format("current maxts is ~p ~n",[MaxTS]),
+    case (State#state.client):get(State#state.bucket, Key,MaxTS,State#state.replies) of
         {ok, Robj} ->
             Robj2 = riak_object:update_value(Robj, ValueGen()),
-            case (State#state.client):put(Robj2, State#state.replies) of
-                ok ->
-                    {ok, State};
+            case (State#state.client):put(Robj2,MaxTS, State#state.replies) of
+                {ok,Timestamp}->
+                    UpdatedMaxTS=max(MaxTS,Timestamp),
+                   % io:format("updated max ts is ~p",[UpdatedMaxTS]),
+                    {ok, State#state{max_ts = UpdatedMaxTS}};
                 {error, Reason} ->
                     {error, Reason, State}
             end;
         {error, notfound} ->
             Robj = riak_object:new(State#state.bucket, Key, ValueGen()),
-            case (State#state.client):put(Robj, State#state.replies) of
-                ok ->
-                    {ok, State};
+            case (State#state.client):put(Robj,MaxTS, State#state.replies) of
+                {ok,Timestamp} ->
+                    UpdatedMaxTS=max(MaxTS,Timestamp),
+                    %io:format("updated max ts is ~p",[UpdatedMaxTS]),
+                    {ok, State#state{max_ts = UpdatedMaxTS}};
                 {error, Reason} ->
                     {error, Reason, State}
             end
