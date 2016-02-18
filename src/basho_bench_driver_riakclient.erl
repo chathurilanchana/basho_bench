@@ -94,12 +94,11 @@ run(get, KeyGen, _ValueGen, State) ->
     end;
 run(put, KeyGen, ValueGen, State) ->
     MaxTS=State#state.max_ts,
-    io:format("current maxts is ~p ~n",[MaxTS]),
     Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
     case (State#state.client):put(Robj,MaxTS, State#state.replies) of
         {ok,Timestamp} ->
             UpdatedMaxTS=max(MaxTS,Timestamp),
-            %io:format("updated Max TS is ~p ~n",[UpdatedMaxTS]),
+            %io:format("updated Max TS is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
             {ok, State#state{max_ts = UpdatedMaxTS}};
         {error, Reason} ->
             {error, Reason, State}
@@ -107,14 +106,13 @@ run(put, KeyGen, ValueGen, State) ->
 run(update, KeyGen, ValueGen, State) ->
     Key = KeyGen(),
     MaxTS=State#state.max_ts,
-    io:format("current maxts is ~p ~n",[MaxTS]),
     case (State#state.client):get(State#state.bucket, Key,MaxTS,State#state.replies) of
         {ok, Robj} ->
             Robj2 = riak_object:update_value(Robj, ValueGen()),
             case (State#state.client):put(Robj2,MaxTS, State#state.replies) of
                 {ok,Timestamp}->
                     UpdatedMaxTS=max(MaxTS,Timestamp),
-                   % io:format("updated max ts is ~p",[UpdatedMaxTS]),
+                     %io:format("updated max ts is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
                     {ok, State#state{max_ts = UpdatedMaxTS}};
                 {error, Reason} ->
                     {error, Reason, State}
@@ -124,7 +122,7 @@ run(update, KeyGen, ValueGen, State) ->
             case (State#state.client):put(Robj,MaxTS, State#state.replies) of
                 {ok,Timestamp} ->
                     UpdatedMaxTS=max(MaxTS,Timestamp),
-                    %io:format("updated max ts is ~p",[UpdatedMaxTS]),
+                    %io:format("updated max ts is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
                     {ok, State#state{max_ts = UpdatedMaxTS}};
                 {error, Reason} ->
                     {error, Reason, State}
