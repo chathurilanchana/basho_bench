@@ -52,18 +52,18 @@ ensure_started() ->
     start_link().
 
 start_link() ->
-    gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 
 load(Files) ->
     ensure_started(),
-    gen_server:call({global, ?MODULE}, {load_files, Files}). 
+    gen_server:call(?MODULE, {load_files, Files}). 
     
 set(Key, Value) ->
-    gen_server:call({global, ?MODULE}, {set, Key, Value}).
+    gen_server:call(?MODULE, {set, Key, Value}).
 
 get(Key) ->
-    case gen_server:call({global, ?MODULE}, {get, Key}) of
+    case gen_server:call(?MODULE, {get, Key}) of
         {ok, Value} ->
             Value;
         undefined ->
@@ -71,7 +71,7 @@ get(Key) ->
     end.
 
 get(Key, Default) ->
-    case gen_server:call({global, ?MODULE}, {get, Key}) of
+    case gen_server:call(?MODULE, {get, Key}) of
         {ok, Value} ->
             Value;
         undefined ->
