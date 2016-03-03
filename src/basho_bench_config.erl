@@ -77,7 +77,6 @@ get(Key, Default) ->
         undefined ->
             Default
     end.
-
 %% @doc Normalize the list of IPs and Ports.
 %%
 %% E.g.

@@ -27,6 +27,7 @@
 -include("basho_bench.hrl").
 
 -record(state, { client,
+                 target_node,
                  bucket,
                  replies }).
 
@@ -73,6 +74,7 @@ new(Id) ->
     case riak:client_connect(TargetNode) of
         {ok, Client} ->
             {ok, #state { client = Client,
+                          target_node=TargetNode,
                           bucket = Bucket,
                           replies = Replies }};
         {error, Reason2} ->
@@ -91,7 +93,7 @@ run(get, KeyGen, _ValueGen, State) ->
     end;
 run(put, KeyGen, ValueGen, State) ->
     Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
-    case (State#state.client):put(Robj, State#state.replies) of
+    case riak_client:forward_to_sequencer(Robj, State#state.replies,{riak_client,[State#state.target_node,undefined]}) of
         ok ->
             {ok, State};
         {error, Reason} ->
@@ -102,7 +104,7 @@ run(update, KeyGen, ValueGen, State) ->
     case (State#state.client):get(State#state.bucket, Key, State#state.replies) of
         {ok, Robj} ->
             Robj2 = riak_object:update_value(Robj, ValueGen()),
-            case (State#state.client):put(Robj2, State#state.replies) of
+            case riak_client:forward_to_sequencer(Robj2, State#state.replies,{riak_client,[State#state.target_node,undefined]}) of
                 ok ->
                     {ok, State};
                 {error, Reason} ->
