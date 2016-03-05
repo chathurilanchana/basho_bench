@@ -93,7 +93,7 @@ run(get, KeyGen, _ValueGen, State) ->
     end;
 run(put, KeyGen, ValueGen, State) ->
     Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
-    case riak_client:forward_to_sequencer(Robj, State#state.replies,{riak_client,[State#state.target_node,undefined]}) of
+    case (State#state.client):forward_to_sequencer(Robj, State#state.replies) of
         ok ->
             {ok, State};
         {error, Reason} ->
@@ -104,7 +104,7 @@ run(update, KeyGen, ValueGen, State) ->
     case (State#state.client):get(State#state.bucket, Key, State#state.replies) of
         {ok, Robj} ->
             Robj2 = riak_object:update_value(Robj, ValueGen()),
-            case riak_client:forward_to_sequencer(Robj2, State#state.replies,{riak_client,[State#state.target_node,undefined]}) of
+            case (State#state.client):forward_to_sequencer(Robj2, State#state.replies) of
                 ok ->
                     {ok, State};
                 {error, Reason} ->
