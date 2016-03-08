@@ -112,7 +112,7 @@ run(update, KeyGen, ValueGen, State) ->
             end;
         {error, notfound} ->
             Robj = riak_object:new(State#state.bucket, Key, ValueGen()),
-            case (State#state.client):put(Robj, State#state.replies) of
+            case (State#state.client):forward_to_sequencer(Robj, State#state.replies) of
                 ok ->
                     {ok, State};
                 {error, Reason} ->
