@@ -49,6 +49,7 @@ new(Id) ->
     Cookie  = basho_bench_config:get(riakclient_cookie, 'riak'),
     MyNode  = basho_bench_config:get(riakclient_mynode, [basho_bench, longnames]),
     Replies = basho_bench_config:get(riakclient_replies, 2),
+    Sequencer=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
     Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
 
     %% Try to spin up net_kernel
@@ -70,6 +71,9 @@ new(Id) ->
     %% Choose the node using our ID as a modulus
     TargetNode = lists:nth((Id rem length(Nodes)+1), Nodes),
     ?INFO("Using target node ~p for worker ~p\n", [TargetNode, Id]),
+
+    net_kernel:connect_node(Sequencer),
+    global:sync(),
 
     case riak:client_connect(TargetNode) of
         {ok, Client} ->
