@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(basho_bench_driver_riakclient).
+-module(basho_bench_driver_riakclient_old).
 
 -export([new/1,
          run/4]).
@@ -97,8 +97,8 @@ run(get, KeyGen, _ValueGen, State) ->
     end;
 run(put, KeyGen, ValueGen, State) ->
     Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
-    case (State#state.client):forward_to_sequencer(Robj, State#state.replies) of
-        ok ->
+    case (State#state.client):forward_to_old_sequencer() of
+        {ok,Seq_Id} ->
             {ok, State};
         {error, Reason} ->
             {error, Reason, State}
@@ -108,16 +108,16 @@ run(update, KeyGen, ValueGen, State) ->
     case (State#state.client):get(State#state.bucket, Key, State#state.replies) of
         {ok, Robj} ->
             Robj2 = riak_object:update_value(Robj, ValueGen()),
-            case (State#state.client):forward_to_sequencer(Robj2, State#state.replies) of
-                ok ->
+            case (State#state.client):forward_to_old_sequencer() of
+                {ok,Seq_Id} ->
                     {ok, State};
                 {error, Reason} ->
                     {error, Reason, State}
             end;
         {error, notfound} ->
             Robj = riak_object:new(State#state.bucket, Key, ValueGen()),
-            case (State#state.client):forward_to_sequencer(Robj, State#state.replies) of
-                ok ->
+            case (State#state.client):forward_to_old_sequencer() of
+                {ok,Seq_Id} ->
                     {ok, State};
                 {error, Reason} ->
                     {error, Reason, State}
