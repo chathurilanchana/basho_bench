@@ -48,6 +48,7 @@ new(Id) ->
     Nodes   = basho_bench_config:get(riakclient_nodes),
     Cookie  = basho_bench_config:get(riakclient_cookie, 'riak'),
     MyNode  = basho_bench_config:get(riakclient_mynode, [basho_bench, longnames]),
+    Sequencer=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
     Replies = basho_bench_config:get(riakclient_replies, 2),
     Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
 
@@ -70,6 +71,9 @@ new(Id) ->
     %% Choose the node using our ID as a modulus
     TargetNode = lists:nth((Id rem length(Nodes)+1), Nodes),
     ?INFO("Using target node ~p for worker ~p\n", [TargetNode, Id]),
+
+    net_kernel:connect_node(Sequencer),
+    global:sync(),
 
     case riak:client_connect(TargetNode) of
         {ok, Client} ->
@@ -112,7 +116,7 @@ run(update, KeyGen, ValueGen, State) ->
             end;
         {error, notfound} ->
             Robj = riak_object:new(State#state.bucket, Key, ValueGen()),
-            case (State#state.client):put(Robj, State#state.replies) of
+            case (State#state.client):forward_to_sequencer(Robj, State#state.replies) of
                 ok ->
                     {ok, State};
                 {error, Reason} ->
