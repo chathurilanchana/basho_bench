@@ -30,6 +30,8 @@
                  target_node,
                  bucket,
                  req_id,
+                 maxTS,
+                 client_id,
                  replies }).
 
 %% ====================================================================
@@ -52,6 +54,7 @@ new(Id) ->
     Sequencer=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
     Replies = basho_bench_config:get(riakclient_replies, 2),
     Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
+    ClientId=basho_bench_config:get(client_id,1),
 
     %% Try to spin up net_kernel
     case net_kernel:start(MyNode) of
@@ -81,6 +84,8 @@ new(Id) ->
             {ok, #state { client = Client,
                           target_node=TargetNode,
                           bucket = Bucket,
+                          maxTS = 0,
+                          client_id = ClientId,
                           replies = Replies }};
         {error, Reason2} ->
             ?FAIL_MSG("Failed get a riak:client_connect to ~p: ~p\n", [TargetNode, Reason2])
@@ -99,34 +104,36 @@ run(get, KeyGen, _ValueGen, State) ->
 run(put, KeyGen, _ValueGen, State) ->
     Key= KeyGen(),
     Timestamp=get_timestamp(),
+    UpdatedMaxTS=max(State#state.maxTS,Timestamp),
     Req_Id=mk_reqid(),
     Node_id=self(),
-    Label=#label{bkey = Key,req_id = Req_Id,timestamp = Timestamp,node_id = Node_id},
-    case (State#state.client):forward_to_ordering_service(Label) of
+    Label=#label{bkey = Key,req_id = Req_Id,timestamp = UpdatedMaxTS,node_id = Node_id},
+    case (State#state.client):forward_to_ordering_service(Label,State#state.client_id) of
         ok ->
-            {ok, State};
+            {ok, State#state{maxTS  = UpdatedMaxTS}};
         {error, Reason} ->
             {error, Reason, State}
     end;
 run(update, KeyGen, ValueGen, State) ->
     Key= KeyGen(),
     Timestamp=get_timestamp(),
+    UpdatedMaxTS=max(State#state.maxTS,Timestamp),
     Req_Id=mk_reqid(),
     Node_id=self(),
-    Label=#label{bkey = Key,req_id = Req_Id,timestamp = Timestamp,node_id = Node_id},
+    Label=#label{bkey = Key,req_id = Req_Id,timestamp = UpdatedMaxTS,node_id = Node_id},
     case (State#state.client):get(State#state.bucket, Key, State#state.replies) of
         {ok, Robj} ->
             _Robj2 = riak_object:update_value(Robj, ValueGen()),
-            case (State#state.client):forward_to_ordering_service(Label) of
+            case (State#state.client):forward_to_ordering_service(Label,State#state.client_id) of
                 ok ->
-                    {ok, State};
+                    {ok, State#state{maxTS  = UpdatedMaxTS}};
                 {error, Reason} ->
                     {error, Reason, State}
             end;
         {error, notfound} ->
-            case (State#state.client):forward_to_ordering_service(Label) of
+            case (State#state.client):forward_to_ordering_service(Label,State#state.client_id) of
                 ok ->
-                    {ok, State};
+                    {ok, State#state{maxTS  = UpdatedMaxTS}};
                 {error, Reason} ->
                     {error, Reason, State}
             end
