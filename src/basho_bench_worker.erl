@@ -152,6 +152,7 @@ handle_cast(run, State) ->
     State#state.worker_pid ! run,
     {noreply, State}.
 
+
 handle_info({'EXIT', Pid, Reason}, State) ->
     case Reason of
         normal ->
@@ -167,7 +168,8 @@ handle_info({'EXIT', Pid, Reason}, State) ->
             {stop, normal, State}
     end.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, State) ->
+    %(State#state.driver):run(batch, State#state.driver_state),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

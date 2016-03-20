@@ -22,13 +22,16 @@
 -module(basho_bench_driver_riakclient_ordering).
 
 -export([new/1,
-         run/4]).
+         run/4,run/2]).
 
 -include("basho_bench.hrl").
 -include("riak_kv_causal_service.hrl").
 -record(state, { client,
                  target_node,
+                 timer_interval,
+                 batch_count,
                  bucket,
+                 batched_labels,
                  req_id,
                  maxTS,
                  client_id,
@@ -54,9 +57,16 @@ new(Id) ->
     Sequencer=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
     Replies = basho_bench_config:get(riakclient_replies, 2),
     Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
-    ClientId=basho_bench_config:get(client_id,1),
+    Concurrent=basho_bench_config:get(concurrent),
 
-    %% Try to spin up net_kernel
+    ConfigId=basho_bench_config:get(client_id,1),
+    ClientId=(ConfigId-1)*Concurrent+Id,
+    io:format("actual client id is ~p ~n",[ClientId]),
+
+    TimerInterval=basho_bench_config:get(timer_interval, 1000),
+
+
+%% Try to spin up net_kernel
     case net_kernel:start(MyNode) of
         {ok, _} ->
             ?INFO("Net kernel started as ~p\n", [node()]);
@@ -83,8 +93,11 @@ new(Id) ->
         {ok, Client} ->
             {ok, #state { client = Client,
                           target_node=TargetNode,
+                          timer_interval = TimerInterval,
                           bucket = Bucket,
                           maxTS = 0,
+                          batch_count = 0,
+                          batched_labels = [],
                           client_id = ClientId,
                           replies = Replies }};
         {error, Reason2} ->
@@ -108,12 +121,26 @@ run(put, KeyGen, _ValueGen, State) ->
     Req_Id=mk_reqid(),
     Node_id=self(),
     Label=#label{bkey = Key,req_id = Req_Id,timestamp = UpdatedMaxTS,node_id = Node_id},
-    case (State#state.client):forward_to_ordering_service(Label,State#state.client_id) of
-        ok ->
-            {ok, State#state{maxTS  = UpdatedMaxTS}};
-        {error, Reason} ->
-            {error, Reason, State}
-    end;
+    Batched_Labels=[Label|State#state.batched_labels],
+
+    Batch_Count=State#state.batch_count+1,
+    Timer_Interval=State#state.timer_interval,
+
+    if
+        Batch_Count>=Timer_Interval ->
+                 Reversed_List=lists:reverse(State#state.batched_labels),
+                 State1=case (State#state.client):forward_to_ordering_service(Reversed_List,State#state.client_id,State#state.maxTS) of
+                     ok ->
+                         State#state{batched_labels =[],batch_count = 0 };
+                     {error, Reason} ->
+                         io:format("error occured while batch delivering labels ~n"),
+                         {error, Reason, State}
+                 end;
+        true ->
+                State1=State#state{batched_labels = Batched_Labels,batch_count = Batch_Count}
+    end,
+    {ok,State1#state{maxTS = UpdatedMaxTS}};
+
 run(update, KeyGen, ValueGen, State) ->
     Key= KeyGen(),
     Timestamp=get_timestamp(),
@@ -148,6 +175,15 @@ run(delete, KeyGen, _ValueGen, State) ->
             {error, Reason, State}
     end.
 
+run(batch,State)->
+    io:format("list is ~p ~n",[State#state.batched_labels]),
+    Reversed_List=lists:reverse(State#state.batched_labels),
+    io:format("reversed list is ~p ~n",[Reversed_List]),
+    case (State#state.client):forward_to_ordering_service(Reversed_List,State#state.client_id,State#state.maxTS) of
+         ok ->
+        {ok, State#state{batched_labels =[] }};
+        {error, Reason} -> {error, Reason, State}
+    end.
 
 %% ====================================================================
 %% Internal functions
