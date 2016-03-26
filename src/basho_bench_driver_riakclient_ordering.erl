@@ -27,6 +27,7 @@
 -include("basho_bench.hrl").
 -include("riak_kv_causal_service.hrl").
 -record(state, { client,
+                 ordering_service_nodes,
                  target_node,
                  timer_interval,
                  batch_count,
@@ -52,9 +53,10 @@ new(Id) ->
     end,
 
     Nodes   = basho_bench_config:get(riakclient_nodes),
+    Ordering_Service_Prefix=basho_bench_config:get(ordering_service_prefix,"riak_kv_ord_service_"),
     Cookie  = basho_bench_config:get(riakclient_cookie, 'riak'),
     MyNode  = basho_bench_config:get(riakclient_mynode, [basho_bench, longnames]),
-    Sequencer=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
+    Sequencers=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
     Replies = basho_bench_config:get(riakclient_replies, 2),
     Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
     Concurrent=basho_bench_config:get(concurrent),
@@ -77,21 +79,25 @@ new(Id) ->
     end,
 
     %% Initialize cookie for each of the nodes
-    [true = erlang:set_cookie(N, Cookie) || N <- Nodes],
+   % [true = erlang:set_cookie(N, Cookie) || N <- Nodes],
+    [true = erlang:set_cookie(N, Cookie) || N <- Sequencers],
 
     %% Try to ping each of the nodes
-    ping_each(Nodes),
+   % ping_each(Nodes),
+    ping_each(Sequencers),
 
     %% Choose the node using our ID as a modulus
     TargetNode = lists:nth((Id rem length(Nodes)+1), Nodes),
     ?INFO("Using target node ~p for worker ~p\n", [TargetNode, Id]),
 
-    net_kernel:connect_node(Sequencer),
-    global:sync(),
+    connect_kernal(Sequencers),
 
     case riak:client_connect(TargetNode) of
-        {ok, Client} ->
+        {ok,Ordering_Service_Nodes, Client} ->
+          Ordering_Service_List=generate_list(Ordering_Service_Nodes,Ordering_Service_Prefix,[]),
+          io:format("ordering service prefix list is ~p ~n",[Ordering_Service_List]),
             {ok, #state { client = Client,
+                          ordering_service_nodes = Ordering_Service_List,
                           target_node=TargetNode,
                           timer_interval = TimerInterval,
                           bucket = Bucket,
@@ -103,6 +109,13 @@ new(Id) ->
         {error, Reason2} ->
             ?FAIL_MSG("Failed get a riak:client_connect to ~p: ~p\n", [TargetNode, Reason2])
     end.
+
+generate_list(0,_Service_Prefix,List)->List;
+
+generate_list(Ordering_Service_Node,Service_Prefix,List)->
+   Service_Name= string:concat(Service_Prefix,integer_to_list(Ordering_Service_Node)),
+   NewList=[Service_Name|List],
+   generate_list(Ordering_Service_Node-1,Service_Prefix,NewList).
 
 run(get, KeyGen, _ValueGen, State) ->
     Key = KeyGen(),
@@ -129,7 +142,7 @@ run(put, KeyGen, _ValueGen, State) ->
     if
         Batch_Count>=Timer_Interval ->
                  Reversed_List=lists:reverse(State#state.batched_labels),
-                 State1=case (State#state.client):forward_to_ordering_service(Reversed_List,State#state.client_id,State#state.maxTS) of
+                 State1=case (State#state.client):forward_to_ordering_service(Reversed_List,State#state.client_id,UpdatedMaxTS,State#state.ordering_service_nodes) of
                      ok ->
                          State#state{batched_labels =[],batch_count = 0 };
                      {error, Reason} ->
@@ -204,3 +217,11 @@ ping_each([Node | Rest]) ->
         pang ->
             ?FAIL_MSG("Failed to ping node ~p\n", [Node])
     end.
+
+connect_kernal([])->
+    ok;
+
+connect_kernal([Node|Rest])->
+    net_kernel:connect_node(Node),
+    global:sync(),
+    connect_kernal(Rest).
