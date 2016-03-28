@@ -77,17 +77,17 @@ new(Id) ->
     end,
 
     %% Initialize cookie for each of the nodes
-    [true = erlang:set_cookie(N, Cookie) || N <- Nodes],
+     [true = erlang:set_cookie(N, Cookie) || N <- Sequencers],
 
     %% Try to ping each of the nodes
-    ping_each(Nodes),
+    % ping_each(Nodes),
+    ping_each(Sequencers),
 
     %% Choose the node using our ID as a modulus
     TargetNode = lists:nth((Id rem length(Nodes)+1), Nodes),
     ?INFO("Using target node ~p for worker ~p\n", [TargetNode, Id]),
 
-    net_kernel:connect_node(Sequencer),
-    global:sync(),
+    connect_kernal(Sequencers),
 
     case riak:client_connect(TargetNode) of
         {ok, Client} ->
@@ -204,3 +204,11 @@ ping_each([Node | Rest]) ->
         pang ->
             ?FAIL_MSG("Failed to ping node ~p\n", [Node])
     end.
+    
+connect_kernal([])->
+    ok;
+
+connect_kernal([Node|Rest])->
+    net_kernel:connect_node(Node),
+    global:sync(),
+    connect_kernal(Rest).
