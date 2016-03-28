@@ -54,7 +54,7 @@ new(Id) ->
     Nodes   = basho_bench_config:get(riakclient_nodes),
     Cookie  = basho_bench_config:get(riakclient_cookie, 'riak'),
     MyNode  = basho_bench_config:get(riakclient_mynode, [basho_bench, longnames]),
-    Sequencer=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
+    Sequencers=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
     Replies = basho_bench_config:get(riakclient_replies, 2),
     Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
     Concurrent=basho_bench_config:get(concurrent),
