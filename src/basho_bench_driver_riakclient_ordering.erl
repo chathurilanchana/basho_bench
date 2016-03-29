@@ -43,18 +43,18 @@
 
 new(Id) ->
     %% Make sure the path is setup such that we can get at riak_client
-    case code:which(riak_client) of
+    case code:which(ordering_app) of
         non_existing ->
-            ?FAIL_MSG("~s requires riak_client module to be available on code path.\n",
+            ?FAIL_MSG("~s requires ordering app module to be available on code path.\n",
                       [?MODULE]);
         _ ->
             ok
     end,
 
     Nodes   = basho_bench_config:get(riakclient_nodes),
-    Cookie  = basho_bench_config:get(riakclient_cookie, 'riak'),
+    Cookie  = basho_bench_config:get(riakclient_cookie, 'ordering'),
     MyNode  = basho_bench_config:get(riakclient_mynode, [basho_bench, longnames]),
-    Sequencers=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
+    Sequencers=basho_bench_config:get(sequencer, 'ordering@127.0.0.1'),
     Replies = basho_bench_config:get(riakclient_replies, 2),
     Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
     Concurrent=basho_bench_config:get(concurrent),
@@ -89,9 +89,8 @@ new(Id) ->
 
     connect_kernal(Sequencers),
 
-    case riak:client_connect(TargetNode) of
-        {ok, Client} ->
-            {ok, #state { client = Client,
+
+            {ok, #state { client = ordering_app,
                           target_node=TargetNode,
                           timer_interval = TimerInterval,
                           bucket = Bucket,
@@ -99,10 +98,7 @@ new(Id) ->
                           batch_count = 0,
                           batched_labels = [],
                           client_id = ClientId,
-                          replies = Replies }};
-        {error, Reason2} ->
-            ?FAIL_MSG("Failed get a riak:client_connect to ~p: ~p\n", [TargetNode, Reason2])
-    end.
+                          replies = Replies }}.
 
 run(get, KeyGen, _ValueGen, State) ->
     Key = KeyGen(),
