@@ -27,6 +27,7 @@
 -include("basho_bench.hrl").
 
 -record(state, { client,
+                 primary_sequencer,
                  target_node,
                  bucket,
                  replies }).
@@ -48,7 +49,7 @@ new(Id) ->
     Nodes   = basho_bench_config:get(riakclient_nodes),
     Cookie  = basho_bench_config:get(riakclient_cookie, 'riak'),
     MyNode  = basho_bench_config:get(riakclient_mynode, [basho_bench, longnames]),
-    Sequencer=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
+    Sequencers=basho_bench_config:get(sequencer, 'riak@127.0.0.1'),
     Replies = basho_bench_config:get(riakclient_replies, 2),
     Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
 
@@ -63,21 +64,22 @@ new(Id) ->
     end,
 
     %% Initialize cookie for each of the nodes
-    [true = erlang:set_cookie(N, Cookie) || N <- Nodes],
+    [true = erlang:set_cookie(N, Cookie) || N <- Sequencers],
 
     %% Try to ping each of the nodes
-    ping_each(Nodes),
+    ping_each(Sequencers),
 
     %% Choose the node using our ID as a modulus
     TargetNode = lists:nth((Id rem length(Nodes)+1), Nodes),
     ?INFO("Using target node ~p for worker ~p\n", [TargetNode, Id]),
 
-    net_kernel:connect_node(Sequencer),
+    connect_kernal(Sequencers),
     global:sync(),
 
     case riak:client_connect(TargetNode) of
-        {ok, Client} ->
+        {ok,Primary_Sequencer, Client} ->
             {ok, #state { client = Client,
+                          primary_sequencer = Primary_Sequencer,
                           target_node=TargetNode,
                           bucket = Bucket,
                           replies = Replies }};
@@ -97,7 +99,7 @@ run(get, KeyGen, _ValueGen, State) ->
     end;
 run(put, KeyGen, ValueGen, State) ->
     Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
-    case (State#state.client):forward_to_sequencer(Robj, State#state.replies) of
+    case (State#state.client):forward_to_sequencer(Robj, State#state.replies,State#state.primary_sequencer) of
         ok ->
             {ok, State};
         {error, Reason} ->
@@ -147,3 +149,10 @@ ping_each([Node | Rest]) ->
         pang ->
             ?FAIL_MSG("Failed to ping node ~p\n", [Node])
     end.
+
+connect_kernal([])->
+    ok;
+
+connect_kernal([Node|Rest])->
+    net_kernel:connect_node(Node),
+    connect_kernal(Rest).
