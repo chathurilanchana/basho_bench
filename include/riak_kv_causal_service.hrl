@@ -8,7 +8,6 @@
 %%%-------------------------------------------------------------------
 -author("chathuri").
 -record(label,{
-    req_id,
     bkey,
     timestamp,
     node_id

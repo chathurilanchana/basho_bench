@@ -118,9 +118,8 @@ run(put, KeyGen, _ValueGen, State) ->
     Key= KeyGen(),
     Timestamp=get_timestamp(),
     UpdatedMaxTS=max(State#state.maxTS,Timestamp),
-    Req_Id=mk_reqid(),
-    Node_id=self(),
-    Label=#label{bkey = Key,req_id = Req_Id,timestamp = UpdatedMaxTS,node_id = Node_id},
+    Node_id=State#state.client_id,
+    Label=#label{bkey = Key,timestamp = UpdatedMaxTS,node_id = Node_id},
     Batched_Labels=[Label|State#state.batched_labels],
 
     Batch_Count=State#state.batch_count+1,
@@ -147,7 +146,7 @@ run(update, KeyGen, ValueGen, State) ->
     UpdatedMaxTS=max(State#state.maxTS,Timestamp),
     Req_Id=mk_reqid(),
     Node_id=self(),
-    Label=#label{bkey = Key,req_id = Req_Id,timestamp = UpdatedMaxTS,node_id = Node_id},
+    Label=#label{bkey = Key,timestamp = UpdatedMaxTS,node_id = Node_id},
     case (State#state.client):get(State#state.bucket, Key, State#state.replies) of
         {ok, Robj} ->
             _Robj2 = riak_object:update_value(Robj, ValueGen()),
