@@ -23,13 +23,16 @@
 
 -export([new/1,
          run/4]).
-
 -include("basho_bench.hrl").
-
+-include("riak_kv_causal_service.hrl").
 -record(state, { client,
-                 bucket,
-                 replies,
-                 max_ts=0
+                 max_ts::integer(),
+                 client_id::integer(),
+                 timer_interval,
+                 batch_count,
+                 batched_labels,
+                 server_ip,
+                 server_port
 
     }).
 
@@ -39,52 +42,42 @@
 
 new(Id) ->
     %% Make sure the path is setup such that we can get at riak_client
-    case code:which(riak_client) of
-        non_existing ->
-            ?FAIL_MSG("~s requires riak_client module to be available on code path.\n",
-                      [?MODULE]);
-        _ ->
-            ok
-    end,
 
-    Nodes   = basho_bench_config:get(riakclient_nodes),
+    TimerInterval=basho_bench_config:get(timer_interval, 1000),
+    Concurrent=basho_bench_config:get(concurrent),
+
+    ConfigId=basho_bench_config:get(client_id,1),
+    ClientId=(ConfigId-1)*Concurrent+Id,
+    Server_Ip=basho_bench_config:get(server_ip,'127.0.0.1'),
+    Server_Port=basho_bench_config:get(server_port,50000),
     Cookie  = basho_bench_config:get(riakclient_cookie, 'riak'),
     MyNode  = basho_bench_config:get(riakclient_mynode, [basho_bench, longnames]),
-    Replies = basho_bench_config:get(riakclient_replies, 2),
-    Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
 
-    %% Try to spin up net_kernel
-    case net_kernel:start(MyNode) of
-        {ok, _} ->
-            ?INFO("Net kernel started as ~p\n", [node()]);
-        {error, {already_started, _}} ->
-            ok;
-        {error, Reason} ->
-            ?FAIL_MSG("Failed to start net_kernel for ~p: ~p\n", [?MODULE, Reason])
-    end,
+  %% Try to spin up net_kernel
+  case net_kernel:start(MyNode) of
+    {ok, _} ->
+      ?INFO("Net kernel started as ~p\n", [node()]);
+    {error, {already_started, _}} ->
+      ok;
+    {error, Reason} ->
+      ?FAIL_MSG("Failed to start net_kernel for ~p: ~p\n", [?MODULE, Reason])
+  end,
 
-    %% Initialize cookie for each of the nodes
-    [true = erlang:set_cookie(N, Cookie) || N <- Nodes],
 
-    %% Try to ping each of the nodes
-    ping_each(Nodes),
+    ?INFO("Using target node  for worker ~p\n", [ Id]),
 
-    %% Choose the node using our ID as a modulus
-    TargetNode = lists:nth((Id rem length(Nodes)+1), Nodes),
-    ?INFO("Using target node ~p for worker ~p\n", [TargetNode, Id]),
-
-    case riak:client_connect(TargetNode) of
-        {ok, Client} ->
-            {ok, #state { client = Client,
-                          bucket = Bucket,
-                          replies = Replies }};
-        {error, Reason2} ->
-            ?FAIL_MSG("Failed get a riak:client_connect to ~p: ~p\n", [TargetNode, Reason2])
-    end.
+            {ok, #state { client = client,
+                          client_id = ClientId,
+                          timer_interval = TimerInterval,
+                          max_ts =  0,
+                          batch_count = 0,
+                          batched_labels = [],
+                          server_ip = Server_Ip,
+                          server_port = Server_Port}}.
 
 run(get, KeyGen, _ValueGen, State) ->
     Key = KeyGen(),
-    case (State#state.client):get(State#state.bucket, Key,State#state.max_ts, State#state.replies) of
+    case (State#state.client):get(bucket, Key,State#state.max_ts,2) of
         {ok, _} ->
             {ok, State};
         {error, notfound} ->
@@ -92,63 +85,43 @@ run(get, KeyGen, _ValueGen, State) ->
         {error, Reason} ->
             {error, Reason, State}
     end;
-run(put, KeyGen, ValueGen, State) ->
-    MaxTS=State#state.max_ts,
-    Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
-    case (State#state.client):put(Robj,MaxTS, State#state.replies) of
-        {ok,Timestamp} ->
-            UpdatedMaxTS=max(MaxTS,Timestamp),
-            %io:format("updated Max TS is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
-            {ok, State#state{max_ts = UpdatedMaxTS}};
-        {error, Reason} ->
-            {error, Reason, State}
-    end;
-run(update, KeyGen, ValueGen, State) ->
-    Key = KeyGen(),
-    MaxTS=State#state.max_ts,
-    case (State#state.client):get(State#state.bucket, Key,MaxTS,State#state.replies) of
-        {ok, Robj} ->
-            Robj2 = riak_object:update_value(Robj, ValueGen()),
-            case (State#state.client):put(Robj2,MaxTS, State#state.replies) of
-                {ok,Timestamp}->
-                    UpdatedMaxTS=max(MaxTS,Timestamp),
-                     %io:format("updated max ts is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
-                    {ok, State#state{max_ts = UpdatedMaxTS}};
-                {error, Reason} ->
-                    {error, Reason, State}
-            end;
-        {error, notfound} ->
-            Robj = riak_object:new(State#state.bucket, Key, ValueGen()),
-            case (State#state.client):put(Robj,MaxTS, State#state.replies) of
-                {ok,Timestamp} ->
-                    UpdatedMaxTS=max(MaxTS,Timestamp),
-                    %io:format("updated max ts is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
-                    {ok, State#state{max_ts = UpdatedMaxTS}};
-                {error, Reason} ->
-                    {error, Reason, State}
-            end
-    end;
-run(delete, KeyGen, _ValueGen, State) ->
-    case (State#state.client):delete(State#state.bucket, KeyGen(), State#state.replies) of
-        ok ->
-            {ok, State};
-        {error, notfound} ->
-            {ok, State};
-        {error, Reason} ->
-            {error, Reason, State}
-    end.
+run(put, KeyGen, ValueGen, State=#state{server_ip = Server_Ip,server_port = Server_Port}) ->
+    Key= KeyGen(),
+    Timestamp=get_timestamp(),
+    UpdatedMaxTS=max(State#state.max_ts,Timestamp),
+    Node_id=State#state.client_id,
+    %Label=#label{bkey = Key,timestamp = UpdatedMaxTS,node_id = Node_id},
+     %Label=integer_to_list(Timestamp) ++ ";" ++ integer_to_list(Key),
+     Label=list_to_binary(string:join([integer_to_list(Timestamp),integer_to_list(Key)],";")),
+     %Label={struct,[{<<"partition">>,Node_id},{<<"stablets">>,UpdatedMaxTS}],
+     Batched_Labels=[Label|State#state.batched_labels],
+
+     Batch_Count=State#state.batch_count+1,
+     Timer_Interval=State#state.timer_interval,
+
+   if
+        Batch_Count>=Timer_Interval ->
+          Reversed_List=lists:reverse(State#state.batched_labels),
+          Json=mochijson2:encode({struct,[{<<"partition">>,Node_id},{<<"stablets">>,UpdatedMaxTS},{<<"labels">>, {array, Reversed_List}}]}),
+          send_json_to_server(Json,Server_Ip,Server_Port),
+          State1=State#state{batched_labels =[],batch_count = 0 };
+            %do json conversion here
+        true ->
+          State1=State#state{batched_labels = Batched_Labels,batch_count = Batch_Count}
+   end,
+    {ok,State1#state{max_ts  = UpdatedMaxTS}}.
 
 
 %% ====================================================================
 %% Internal functions
 %% ====================================================================
 
-ping_each([]) ->
-    ok;
-ping_each([Node | Rest]) ->
-    case net_adm:ping(Node) of
-        pong ->
-            ping_each(Rest);
-        pang ->
-            ?FAIL_MSG("Failed to ping node ~p\n", [Node])
-    end.
+send_json_to_server(Json,Server_Ip,Server_Port)->
+  {ok, Socket} = gen_tcp:connect(Server_Ip, Server_Port, [binary, {active,true}]),
+  gen_tcp:send(Socket, Json).
+
+
+
+get_timestamp()->
+    {MegaSecs, Secs, MicroSecs}=os:timestamp(),
+    (MegaSecs * 1000000 + Secs) * 1000000 + MicroSecs.
