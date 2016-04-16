@@ -106,7 +106,7 @@ run(put, KeyGen, ValueGen, State=#state{server_ip = Server_Ip,server_port = Serv
 
           Label_Str=generate_label_str(State#state.batched_labels,$;),
           Payload=generate_string(Node_id,UpdatedMaxTS,Label_Str),
-          Payload_Length=length(Payload),
+          Payload_Length=length(Payload)-1,
           Padded_Payload_Header=get_padded_payload_length(Payload_Length),
           Str_With_Header=string:join([Padded_Payload_Header,Payload],"|"),
           io:format("label str is ~p ~n",[Str_With_Header]),
@@ -141,7 +141,7 @@ generate_label_str1([Head | Tail], Sep, Acc) ->
   generate_label_str1(Tail, Sep, [Sep, Head | Acc]).
 
 generate_string(NodeId,UpdatedMaxTS,LabelStr)->
-  integer_to_list(NodeId) ++ "|" ++ integer_to_list(UpdatedMaxTS) ++"|" ++ LabelStr.
+  integer_to_list(NodeId) ++ "|" ++ integer_to_list(UpdatedMaxTS) ++"|" ++ LabelStr ++"#".
 
 send_json_to_server(Json,Server_Ip,Server_Port,Socket)->
   %{ok, Socket} = gen_tcp:connect(Server_Ip, Server_Port, [binary, {active,true}]),  %reuse same channel
