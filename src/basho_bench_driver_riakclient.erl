@@ -106,14 +106,16 @@ run(put, KeyGen, ValueGen, State=#state{server_ip = Server_Ip,server_port = Serv
 
           Label_Str=generate_label_str(State#state.batched_labels,$;),
           Payload=generate_string(Node_id,UpdatedMaxTS,Label_Str),
-          Payload_Length=length(Payload)-1,
+          Payload_Length=length(Payload),
           Padded_Payload_Header=get_padded_payload_length(Payload_Length),
-          Str_With_Header=string:join([Padded_Payload_Header,Payload],"|"),
-          io:format("label str is ~p ~n",[Str_With_Header]),
+
+          Actual_Header=string:join([Padded_Payload_Header,Payload],"|"),
+          Formatted_Header="L=" ++ Actual_Header,
+          
           %Json=mochijson2:encode({struct,[{<<"partition">>,Node_id},{<<"stablets">>,UpdatedMaxTS},{<<"labels">>, {array, Reversed_List}}]}),
           %send_json_to_server(Json,Server_Ip,Server_Port),
 
-          Socket1=send_json_to_server(Str_With_Header,Server_Ip,Server_Port,Socket),
+          Socket1=send_json_to_server(Formatted_Header,Server_Ip,Server_Port,Socket),
 
           State1=State#state{batched_labels =[],batch_count = 0,socket = Socket1 };
             %do json conversion here
@@ -128,7 +130,7 @@ run(put, KeyGen, ValueGen, State=#state{server_ip = Server_Ip,server_port = Serv
 %% ====================================================================
 
 get_padded_payload_length(Payload_Length)->
-  PayloadHeaderStr=integer_to_list(Payload_Length),
+  PayloadHeaderStr=integer_to_list(Payload_Length+11),%L,=,| and 8 bytes
   string:right(PayloadHeaderStr, 8, $0).
 
 
