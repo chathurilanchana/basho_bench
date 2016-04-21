@@ -102,7 +102,7 @@ run(put, KeyGen, ValueGen, State=#state{server_ip = Server_Ip,server_port = Serv
       io:format("connection closed ~n"),
       gen_tcp:close(Socket);
     {tcp, Socket, Msg} ->
-      SequencerId=binary_to_integer(Msg),
+      SequencerId=binary_to_integer(Msg)
      %io:format("seq id ~p ~n",[SequencerId])
       %handle(Socket)
   end,
