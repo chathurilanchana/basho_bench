@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(basho_bench_driver_riakclient_sequencer).
+-module(basho_bench_driver_riakclient_sequencer_optimised).
 
 -export([new/1,
          run/4]).
@@ -91,21 +91,13 @@ run(get, KeyGen, _ValueGen, State) ->
             {error, Reason, State}
     end;
 run(put, KeyGen, ValueGen, State=#state{server_ip = Server_Ip,server_port = Server_Port,socket = Socket}) ->
-    B_Message = term_to_binary("seqno"),
+    Robj = {KeyGen(), ValueGen()},
+    B_Message = term_to_binary(Robj),
+    io:format("message length ~p ~n",[byte_size(B_Message)]),
     case gen_tcp:send(Socket, B_Message) of
       ok->Socket;
         _-> {ok, Socket1} = gen_tcp:connect(Server_Ip, Server_Port, [binary, {active,true}]),gen_tcp:send(Socket1, B_Message),Socket1
     end,
-
-  receive
-    {tcp, Socket, <<"quit", _/binary>>} ->
-      io:format("connection closed ~n"),
-      gen_tcp:close(Socket);
-    {tcp, Socket, Msg} ->
-      SequencerId=binary_to_integer(Msg),
-     %io:format("seq id ~p ~n",[SequencerId])
-      %handle(Socket)
-  end,
     {ok,State#state{socket = Socket}}.
 
 
