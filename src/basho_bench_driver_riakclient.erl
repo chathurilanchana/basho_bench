@@ -27,9 +27,11 @@
 -include("basho_bench.hrl").
 
 -record(state, { client,
+                 target_node,
                  bucket,
                  replies,
-                 max_ts=0
+                 max_ts=0,
+                 put_count=0
 
     }).
 
@@ -52,6 +54,7 @@ new(Id) ->
     MyNode  = basho_bench_config:get(riakclient_mynode, [basho_bench, longnames]),
     Replies = basho_bench_config:get(riakclient_replies, 2),
     Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
+    Cluster_Members= basho_bench_config:get(riakclient_cluster_members),% ping and connect kernal to all members to avoid errors
 
     %% Try to spin up net_kernel
     case net_kernel:start(MyNode) of
@@ -64,10 +67,12 @@ new(Id) ->
     end,
 
     %% Initialize cookie for each of the nodes
-    [true = erlang:set_cookie(N, Cookie) || N <- Nodes],
+    [true = erlang:set_cookie(N, Cookie) || N <- Cluster_Members],
 
     %% Try to ping each of the nodes
-    ping_each(Nodes),
+    ping_each(Cluster_Members),
+
+    connect_kernal(Cluster_Members),
 
     %% Choose the node using our ID as a modulus
     TargetNode = lists:nth((Id rem length(Nodes)+1), Nodes),
@@ -76,6 +81,8 @@ new(Id) ->
     case riak:client_connect(TargetNode) of
         {ok, Client} ->
             {ok, #state { client = Client,
+                          target_node=TargetNode,
+                          put_count = 0,
                           bucket = Bucket,
                           replies = Replies }};
         {error, Reason2} ->
@@ -95,11 +102,12 @@ run(get, KeyGen, _ValueGen, State) ->
 run(put, KeyGen, ValueGen, State) ->
     MaxTS=State#state.max_ts,
     Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
-    case (State#state.client):put(Robj,MaxTS, State#state.replies) of
+    case riak_client:put(Robj,MaxTS, State#state.replies,{riak_client,[State#state.target_node,undefined]}) of
         {ok,Timestamp} ->
             UpdatedMaxTS=max(MaxTS,Timestamp),
+            Put_Count= State#state.put_count+1,
             %io:format("updated Max TS is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
-            {ok, State#state{max_ts = UpdatedMaxTS}};
+            {ok, State#state{max_ts = UpdatedMaxTS,put_count = Put_Count}};
         {error, Reason} ->
             {error, Reason, State}
     end;
@@ -113,7 +121,9 @@ run(update, KeyGen, ValueGen, State) ->
                 {ok,Timestamp}->
                     UpdatedMaxTS=max(MaxTS,Timestamp),
                      %io:format("updated max ts is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
-                    {ok, State#state{max_ts = UpdatedMaxTS}};
+                    Put_Count= State#state.put_count+1,
+                    %lager:info("put count is ~p id is ~p ~n",[Put_Count,self()]),
+                    {ok, State#state{max_ts = UpdatedMaxTS,put_count = Put_Count}};
                 {error, Reason} ->
                     {error, Reason, State}
             end;
@@ -122,8 +132,10 @@ run(update, KeyGen, ValueGen, State) ->
             case (State#state.client):put(Robj,MaxTS, State#state.replies) of
                 {ok,Timestamp} ->
                     UpdatedMaxTS=max(MaxTS,Timestamp),
+                    Put_Count= State#state.put_count+1,
+                    %lager:info("put count is ~p id is ~p ~n",[Put_Count,self()]),
                     %io:format("updated max ts is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
-                    {ok, State#state{max_ts = UpdatedMaxTS}};
+                    {ok, State#state{max_ts = UpdatedMaxTS,put_count = Put_Count}};
                 {error, Reason} ->
                     {error, Reason, State}
             end
@@ -136,8 +148,12 @@ run(delete, KeyGen, _ValueGen, State) ->
             {ok, State};
         {error, Reason} ->
             {error, Reason, State}
-    end.
-
+    end;
+run(test, _KeyGen, _ValueGen, State) ->
+     io:format("calling actual driver ~p ~n",[State]),
+    Put_Count=State#state.put_count,
+     io:format("TOTAL PUTS BY THIS THREAD IS ~p ~n",[Put_Count]),
+     ok.
 
 %% ====================================================================
 %% Internal functions
@@ -152,3 +168,11 @@ ping_each([Node | Rest]) ->
         pang ->
             ?FAIL_MSG("Failed to ping node ~p\n", [Node])
     end.
+
+connect_kernal([])->
+    ok;
+
+connect_kernal([Node|Rest])->
+    net_kernel:connect_node(Node),
+    global:sync(),
+    connect_kernal(Rest).

@@ -167,7 +167,7 @@ handle_info({'EXIT', Pid, Reason}, State) ->
             {stop, normal, State}
     end.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, State) ->
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -257,6 +257,7 @@ worker_next_op(State) ->
     Start = os:timestamp(),
     Result = worker_next_op2(State, OpTag),
     ElapsedUs = erlang:max(0, timer:now_diff(os:timestamp(), Start)),
+
     case Result of
         {Res, DriverState} when Res == ok orelse element(1, Res) == ok ->
             basho_bench_stats:op_complete(Next, Res, ElapsedUs),
