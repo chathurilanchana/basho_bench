@@ -31,6 +31,7 @@
                  bucket,
                  replies,
                  max_ts=0,
+                 gst=0,
                  put_count=0
 
     }).
@@ -89,19 +90,27 @@ new(Id) ->
             ?FAIL_MSG("Failed get a riak:client_connect to ~p: ~p\n", [TargetNode, Reason2])
     end.
 
-run(get, KeyGen, _ValueGen, State) ->
+run(get, KeyGen, _ValueGen, State=#state{gst=GSTC}) ->
     Key = KeyGen(),
-    case (State#state.client):get(State#state.bucket, Key,State#state.max_ts, State#state.replies) of
-        {ok, _} ->
+    case (State#state.client):get(State#state.bucket, Key,State#state.gst, State#state.replies) of
+        {{ok, Val},GST} ->
+             %io:format("GST received by vnode is ~p mine is ~p ~n",[GST,GSTC]),
+             MaxGST=max(GST,GSTC),
+             {_D1,TSBIN} = riak_object:get_value(Val),
+             TS=binary_to_term(TSBIN),
+             %io:format("ts from obj is ~p ~n",[TS]),
+             MaxTS=max(TS,State#state.max_ts) ,
+            {ok, State#state{max_ts = MaxTS,gst=MaxGST}};
+        {{error, notfound},_} ->
+            io:format("object not found"),
             {ok, State};
-        {error, notfound} ->
-            {ok, State};
-        {error, Reason} ->
+        {{error, Reason},_}->
             {error, Reason, State}
     end;
 run(put, KeyGen, ValueGen, State) ->
     MaxTS=State#state.max_ts,
-    Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
+    Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()), %object will be updated at vnode to reflect correct ts
+
     case riak_client:put(Robj,MaxTS, State#state.replies,{riak_client,[State#state.target_node,undefined]}) of
         {ok,Timestamp} ->
             UpdatedMaxTS=max(MaxTS,Timestamp),
