@@ -92,8 +92,12 @@ new(Id) ->
 run(get, KeyGen, _ValueGen, State) ->
     Key = KeyGen(),
     case (State#state.client):get(State#state.bucket, Key,State#state.max_ts, State#state.replies) of
-        {ok, _} ->
-            {ok, State};
+        {ok, Val} ->
+            {_D1,TSBIN} = riak_object:get_value(Val),
+            TS=binary_to_term(TSBIN),
+            %io:format("ts from obj is ~p ~n",[TS]),
+            MaxTS=max(TS,State#state.max_ts) ,  %to ensure causality
+            {ok, State#state{max_ts = MaxTS}};
         {error, notfound} ->
             {ok, State};
         {error, Reason} ->
