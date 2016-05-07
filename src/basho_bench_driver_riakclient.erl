@@ -102,7 +102,6 @@ run(get, KeyGen, _ValueGen, State=#state{gst=GSTC}) ->
              MaxTS=max(TS,State#state.max_ts) ,
             {ok, State#state{max_ts = MaxTS,gst=MaxGST}};
         {{error, notfound},_} ->
-            io:format("object not found"),
             {ok, State};
         {{error, Reason},_}->
             {error, Reason, State}
