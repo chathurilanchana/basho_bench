@@ -73,7 +73,7 @@ new(Id) ->
     %% Try to ping each of the nodes
     ping_each(Cluster_Members),
 
-    connect_kernal(Cluster_Members),
+    %connect_kernal(Cluster_Members),
 
     %% Choose the node using our ID as a modulus
     TargetNode = lists:nth((Id rem length(Nodes)+1), Nodes),
@@ -174,7 +174,7 @@ ping_each([Node | Rest]) ->
         pong ->
             ping_each(Rest);
         pang ->
-            ?FAIL_MSG("Failed to ping node ~p\n", [Node])
+            io:format("Failed to ping node ~p ~n", [Node])
     end.
 
 connect_kernal([])->
