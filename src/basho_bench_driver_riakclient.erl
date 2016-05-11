@@ -115,13 +115,11 @@ run(put, KeyGen, ValueGen, State) ->
     My_VClock=State#state.vclock,
     Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
     case riak_client:put(Robj,{MaxTS,My_VClock}, State#state.replies,{riak_client,[State#state.target_node,undefined]}) of
-        {ok,Clock} ->
-            {Timestamp,Vnode_Vector}=Clock,
+        {ok,Timestamp} ->
             UpdatedMaxTS=max(MaxTS,Timestamp),
-            My_Vclock1=get_max_vector(My_VClock,Vnode_Vector),
             Put_Count= State#state.put_count+1,
             %io:format("updated Max TS is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
-            {ok, State#state{max_ts = UpdatedMaxTS,put_count = Put_Count,vclock = My_Vclock1}};
+            {ok, State#state{max_ts = UpdatedMaxTS,put_count = Put_Count}};
         {error, Reason} ->
             {error, Reason, State}
     end;
