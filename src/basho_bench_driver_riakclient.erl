@@ -30,6 +30,7 @@
                  target_node,
                  bucket,
                  replies,
+                 vclock,
                  max_ts=0,
                  put_count=0
 
@@ -55,6 +56,10 @@ new(Id) ->
     Replies = basho_bench_config:get(riakclient_replies, 2),
     Bucket  = basho_bench_config:get(riakclient_bucket, <<"test">>),
     Cluster_Members= basho_bench_config:get(riakclient_cluster_members),% ping and connect kernal to all members to avoid errors
+    Num_DCs=basho_bench_config:get(num_dcs),
+    Local_Dc_Id=basho_bench_config:get(local_dc_id),
+
+    Dict1=init_vclock(dict:new(),Num_DCs,Local_Dc_Id),
 
     %% Try to spin up net_kernel
     case net_kernel:start(MyNode) of
@@ -82,6 +87,7 @@ new(Id) ->
         {ok, Client} ->
             {ok, #state { client = Client,
                           target_node=TargetNode,
+                          vclock = Dict1,
                           put_count = 0,
                           bucket = Bucket,
                           replies = Replies }};
@@ -92,26 +98,30 @@ new(Id) ->
 run(get, KeyGen, _ValueGen, State) ->
     Key = KeyGen(),
     case (State#state.client):get(State#state.bucket, Key,State#state.max_ts, State#state.replies) of
-        {ok, Val} ->
+        {{ok, Val},VNode_VClock} ->
             {_D1,TSBIN} = riak_object:get_value(Val),
             TS=binary_to_term(TSBIN),
-            %io:format("ts from obj is ~p ~n",[TS]),
+            My_Vec=State#state.vclock,
+            My_Vec1=get_max_vector(My_Vec,VNode_VClock),
             MaxTS=max(TS,State#state.max_ts) ,  %to ensure causality
-            {ok, State#state{max_ts = MaxTS}};
-        {error, notfound} ->
+            {ok, State#state{max_ts = MaxTS,vclock = My_Vec1}};
+        {{error, notfound},_VClock} ->
             {ok, State};
         {error, Reason} ->
             {error, Reason, State}
     end;
 run(put, KeyGen, ValueGen, State) ->
     MaxTS=State#state.max_ts,
+    My_VClock=State#state.vclock,
     Robj = riak_object:new(State#state.bucket, KeyGen(), ValueGen()),
-    case riak_client:put(Robj,MaxTS, State#state.replies,{riak_client,[State#state.target_node,undefined]}) of
-        {ok,Timestamp} ->
+    case riak_client:put(Robj,{MaxTS,My_VClock}, State#state.replies,{riak_client,[State#state.target_node,undefined]}) of
+        {ok,Clock} ->
+            {Timestamp,Vnode_Vector}=Clock,
             UpdatedMaxTS=max(MaxTS,Timestamp),
+            My_Vclock1=get_max_vector(My_VClock,Vnode_Vector),
             Put_Count= State#state.put_count+1,
             %io:format("updated Max TS is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
-            {ok, State#state{max_ts = UpdatedMaxTS,put_count = Put_Count}};
+            {ok, State#state{max_ts = UpdatedMaxTS,put_count = Put_Count,vclock = My_Vclock1}};
         {error, Reason} ->
             {error, Reason, State}
     end;
@@ -180,3 +190,20 @@ connect_kernal([Node|Rest])->
     net_kernel:connect_node(Node),
     global:sync(),
     connect_kernal(Rest).
+
+init_vclock(Dict,0,_Local_Id)->Dict;
+
+init_vclock(Dict,Num_DCs,Local_Id)->
+    case Num_DCs of
+        Local_Id-> init_vclock(Dict,Num_DCs-1,Local_Id);
+            _   -> Dict1=dict:store(Num_DCs,0,Dict),
+                   init_vclock(Dict1,Num_DCs-1,Local_Id)
+    end.
+
+get_max_vector(My_Vec,VNode_VClock)->
+    lists:foldl(fun(Key, Vector) ->
+    MyClock = dict:fetch(Key, My_Vec),
+    ReceivedClock = dict:fetch(Key, VNode_VClock),
+    Max= max(MyClock,ReceivedClock),
+    dict:store(Key, Max, Vector)
+    end, dict:new(),dict:fetch_keys(My_Vec)).
