@@ -116,7 +116,7 @@ run(put, KeyGen, ValueGen, State) ->
 
     case riak_client:put(Robj,VClock, State#state.replies,{riak_client,[State#state.target_node,undefined]}) of
         {ok,Vnode_Clock} ->
-            Max_GST_Clock=get_max_vector(VClock,Vnode_Clock),
+            Max_GST_Clock=dict:store(Local_Dc_Id,Vnode_Clock,VClock),%vnode is going to return max of its own, no need for validations
             Put_Count= State#state.put_count+1,
             %io:format("updated Max TS is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
             {ok, State#state{gst_v = Max_GST_Clock,put_count = Put_Count}};
