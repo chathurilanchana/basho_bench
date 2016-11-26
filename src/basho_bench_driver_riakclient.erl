@@ -22,19 +22,19 @@
 -module(basho_bench_driver_riakclient).
 
 -export([new/1,
-         run/4]).
+    run/4]).
 
 -include("basho_bench.hrl").
 
 -record(state, { client,
-                 target_node,
-                 bucket,
-                 replies,
-                 vclock,
-                 max_ts=0,
-                 put_count=0
+    target_node,
+    bucket,
+    replies,
+    vclock,
+    max_ts=0,
+    put_count=0
 
-    }).
+}).
 
 %% ====================================================================
 %% API
@@ -45,7 +45,7 @@ new(Id) ->
     case code:which(riak_client) of
         non_existing ->
             ?FAIL_MSG("~s requires riak_client module to be available on code path.\n",
-                      [?MODULE]);
+                [?MODULE]);
         _ ->
             ok
     end,
@@ -86,11 +86,11 @@ new(Id) ->
     case riak:client_connect(TargetNode) of
         {ok, Client} ->
             {ok, #state { client = Client,
-                          target_node=TargetNode,
-                          vclock = Dict1,
-                          put_count = 0,
-                          bucket = Bucket,
-                          replies = Replies }};
+                target_node=TargetNode,
+                vclock = Dict1,
+                put_count = 0,
+                bucket = Bucket,
+                replies = Replies }};
         {error, Reason2} ->
             ?FAIL_MSG("Failed get a riak:client_connect to ~p: ~p\n", [TargetNode, Reason2])
     end.
@@ -132,7 +132,7 @@ run(update, KeyGen, ValueGen, State) ->
             case (State#state.client):put(Robj2,MaxTS, State#state.replies) of
                 {ok,Timestamp}->
                     UpdatedMaxTS=max(MaxTS,Timestamp),
-                     %io:format("updated max ts is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
+                    %io:format("updated max ts is ~p myid is ~p ~n",[UpdatedMaxTS,self()]),
                     Put_Count= State#state.put_count+1,
                     %lager:info("put count is ~p id is ~p ~n",[Put_Count,self()]),
                     {ok, State#state{max_ts = UpdatedMaxTS,put_count = Put_Count}};
@@ -162,10 +162,10 @@ run(delete, KeyGen, _ValueGen, State) ->
             {error, Reason, State}
     end;
 run(test, _KeyGen, _ValueGen, State) ->
-     io:format("calling actual driver ~p ~n",[State]),
+    io:format("calling actual driver ~p ~n",[State]),
     Put_Count=State#state.put_count,
-     io:format("TOTAL PUTS BY THIS THREAD IS ~p ~n",[Put_Count]),
-     ok.
+    io:format("TOTAL PUTS BY THIS THREAD IS ~p ~n",[Put_Count]),
+    ok.
 
 %% ====================================================================
 %% Internal functions
@@ -194,14 +194,14 @@ init_vclock(Dict,0,_Local_Id)->Dict;
 init_vclock(Dict,Num_DCs,Local_Id)->
     case Num_DCs of
         Local_Id-> init_vclock(Dict,Num_DCs-1,Local_Id);
-            _   -> Dict1=dict:store(Num_DCs,0,Dict),
-                   init_vclock(Dict1,Num_DCs-1,Local_Id)
+        _   -> Dict1=dict:store(Num_DCs,0,Dict),
+            init_vclock(Dict1,Num_DCs-1,Local_Id)
     end.
 
 get_max_vector(My_Vec,VNode_VClock)->
     lists:foldl(fun(Key, Vector) ->
-    MyClock = dict:fetch(Key, My_Vec),
-    ReceivedClock = dict:fetch(Key, VNode_VClock),
-    Max= max(MyClock,ReceivedClock),
-    dict:store(Key, Max, Vector)
-    end, dict:new(),dict:fetch_keys(My_Vec)).
+        MyClock = dict:fetch(Key, My_Vec),
+        ReceivedClock = dict:fetch(Key, VNode_VClock),
+        Max= max(MyClock,ReceivedClock),
+        dict:store(Key, Max, Vector)
+                end, dict:new(),dict:fetch_keys(My_Vec)).

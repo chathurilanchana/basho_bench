@@ -57,7 +57,7 @@ start_link() ->
 
 load(Files) ->
     ensure_started(),
-    gen_server:call(?MODULE, {load_files, Files}). 
+    gen_server:call(?MODULE, {load_files, Files}).
     
 set(Key, Value) ->
     gen_server:call(?MODULE, {set, Key, Value}).
@@ -77,6 +77,7 @@ get(Key, Default) ->
         undefined ->
             Default
     end.
+
 %% @doc Normalize the list of IPs and Ports.
 %%
 %% E.g.

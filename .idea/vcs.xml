@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/bear" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/casbench" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/cqerl" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/folsom" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/getopt" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/goldrush" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/hamcrest" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/ibrowse" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/katja" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/lager" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/lz4" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/meck" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/mochiweb" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/node_package" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/pooler" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/protobuffs" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/quickrand" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/rebar_lock_deps_plugin" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/riak_pb" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/riakc" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/semver" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/snappy" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/uuid" vcs="Git" />
+  </component>
+</project>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/basho_bench.iml" filepath="$PROJECT_DIR$/basho_bench.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/bear/bear.iml" filepath="$PROJECT_DIR$/deps/bear/bear.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/pooler/bench/bench.iml" filepath="$PROJECT_DIR$/deps/pooler/bench/bench.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/casbench/casbench.iml" filepath="$PROJECT_DIR$/deps/casbench/casbench.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/cqerl/cqerl.iml" filepath="$PROJECT_DIR$/deps/cqerl/cqerl.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/folsom/folsom.iml" filepath="$PROJECT_DIR$/deps/folsom/folsom.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/getopt/getopt.iml" filepath="$PROJECT_DIR$/deps/getopt/getopt.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/goldrush/goldrush.iml" filepath="$PROJECT_DIR$/deps/goldrush/goldrush.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/hamcrest/hamcrest.iml" filepath="$PROJECT_DIR$/deps/hamcrest/hamcrest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/ibrowse/ibrowse.iml" filepath="$PROJECT_DIR$/deps/ibrowse/ibrowse.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/katja/katja.iml" filepath="$PROJECT_DIR$/deps/katja/katja.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/lager/lager.iml" filepath="$PROJECT_DIR$/deps/lager/lager.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/lz4/lz4.iml" filepath="$PROJECT_DIR$/deps/lz4/lz4.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/meck/meck.iml" filepath="$PROJECT_DIR$/deps/meck/meck.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/mochiweb/support/templates/mochiwebapp_skel/mochiapp.iml" filepath="$PROJECT_DIR$/deps/mochiweb/support/templates/mochiwebapp_skel/mochiapp.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/mochiweb/mochiweb.iml" filepath="$PROJECT_DIR$/deps/mochiweb/mochiweb.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/node_package/node_package.iml" filepath="$PROJECT_DIR$/deps/node_package/node_package.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/pooler/pooler.iml" filepath="$PROJECT_DIR$/deps/pooler/pooler.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/protobuffs/protobuffs.iml" filepath="$PROJECT_DIR$/deps/protobuffs/protobuffs.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/quickrand/quickrand.iml" filepath="$PROJECT_DIR$/deps/quickrand/quickrand.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/rebar_lock_deps_plugin/rebar_lock_deps_plugin.iml" filepath="$PROJECT_DIR$/deps/rebar_lock_deps_plugin/rebar_lock_deps_plugin.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/riak_pb/riak_pb.iml" filepath="$PROJECT_DIR$/deps/riak_pb/riak_pb.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/riakc/riakc.iml" filepath="$PROJECT_DIR$/deps/riakc/riakc.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/semver/semver.iml" filepath="$PROJECT_DIR$/deps/semver/semver.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/snappy/snappy.iml" filepath="$PROJECT_DIR$/deps/snappy/snappy.iml" />
+      <module fileurl="file://$PROJECT_DIR$/deps/uuid/uuid.iml" filepath="$PROJECT_DIR$/deps/uuid/uuid.iml" />
+    </modules>
+  </component>
+</project>
